@@ -1,6 +1,5 @@
 package Telecom.SubscriptionService.controller;
 
-
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -20,51 +19,56 @@ import Telecom.SubscriptionService.model.User;
 import Telecom.SubscriptionService.service.UserService;
 
 @RestController
-@RequestMapping("/api/user")
+@RequestMapping({ "/api/user", "" })
 public class UserController {
 
     private final UserService userService;
 
-    public UserController (UserService userService) {
-        this.userService = userService;
+    public UserController(UserService userService) {
+	this.userService = userService;
     }
 
     @GetMapping
     public ResponseEntity<List<User>> getAllUsers() {
-        return ResponseEntity.ok(userService.getAllUsers());
+	return ResponseEntity.ok(userService.getAllUsers());
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<User> getUserById(@PathVariable Long id) {
-        return ResponseEntity.ok(userService.getUserById(id));
+	return ResponseEntity.ok(userService.getUserById(id));
     }
 
     @PostMapping
     public ResponseEntity<ResponseMessage> createUser(@RequestBody UserDto userDto) {
-        userService.createUser(userDto);
-        return new ResponseEntity<>(new ResponseMessage("User created Successfully"), HttpStatus.CREATED);
+	userService.createUser(userDto);
+	return new ResponseEntity<>(new ResponseMessage("User created Successfully"), HttpStatus.CREATED);
     }
 
     @GetMapping("/name/{name}")
     public ResponseEntity<User> getUserByName(@PathVariable String name) {
-        return ResponseEntity.ok(userService.getUserByName(name));
+	return ResponseEntity.ok(userService.getUserByName(name));
     }
 
     @GetMapping("/email/{email}")
     public ResponseEntity<User> getUserByEmail(@PathVariable String email) {
-        return ResponseEntity.ok(userService.getUserByEmail(email));
+	return ResponseEntity.ok(userService.getUserByEmail(email));
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<ResponseMessage> updateUser(@PathVariable Long id, @RequestBody UserDto userDto) {
-        userService.updateUser(id, userDto);
-        return ResponseEntity.ok(new ResponseMessage("User updated Successfully"));
+	userService.updateUser(id, userDto);
+	return ResponseEntity.ok(new ResponseMessage("User updated Successfully"));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<ResponseMessage> deleteUser(@PathVariable Long id) {
-        userService.deleteUser(id);
-        return ResponseEntity.ok(new ResponseMessage("User Deleted Successfully"));
+	userService.deleteUser(id);
+	return ResponseEntity.ok(new ResponseMessage("User Deleted Successfully"));
+    }
+
+ // Exposed at both /tickets/{userId} and /api/user/tickets/{userId}
+    @GetMapping("/tickets/{userId}")
+    public ResponseEntity<List<Object>> getUserTickets(@PathVariable Long userId) {
+        return ResponseEntity.ok(userService.getUserTickets(userId));
     }
 }
-

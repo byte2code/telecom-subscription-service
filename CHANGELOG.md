@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented in this file.
 
+## [v2.0.0] - 2026-05-12
+
+Second version of the Telecom Subscription Service.
+
+- Added `/api/user/tickets/{userId}` for user ticket lookup.
+- Updated subscription creation to validate the user first and then call the billing service.
+- Expanded the README with API examples, flow notes, and project structure.
+- Kept the existing user, account, and subscription CRUD flows intact.
+
 ## [v1.0.0] - 2026-05-12
 
 Initial release of the Telecom Subscription Service.

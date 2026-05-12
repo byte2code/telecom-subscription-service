@@ -1,19 +1,24 @@
 # Telecom Subscription Service
 
-Spring Boot REST API for managing telecom users, their accounts, and subscription plans.
+Spring Boot REST API for telecom user, account, and subscription management with MySQL persistence.
 
 ## Overview
 
-This project is a small service for telecom-style customer management. It keeps the core business flow in one application, with separate layers for users, accounts, and subscriptions. That makes it a good learning project for Spring Boot, JPA relationships, and CRUD-based API design.
+This project manages telecom customer data in a single Spring Boot service. The application keeps user records, account details, and subscription plans together, while the v2 update adds a ticket lookup route and a subscription flow that hands off billing work to a downstream service call.
+
+The project is useful for understanding CRUD APIs, JPA relationships, DTO mapping, and service-to-service integration through `RestTemplate`.
 
 ## Concepts / Features Covered
 
 - Spring Boot REST APIs
-- Spring Data JPA with one-to-one and one-to-many relationships
-- MySQL persistence
+- Spring Data JPA entities and repositories
+- One-to-one and one-to-many mapping
 - DTO-based request handling
-- CRUD operations for users, accounts, and subscriptions
-- JSON response mapping with `@JsonIgnoreProperties`
+- MySQL persistence
+- User, account, and subscription CRUD
+- User ticket lookup endpoint
+- Subscription creation with downstream billing call
+- JSON serialization control with `@JsonIgnoreProperties`
 
 ## Tech Stack
 
@@ -24,6 +29,7 @@ This project is a small service for telecom-style customer management. It keeps 
 - MySQL
 - Lombok
 - Maven
+- RestTemplate
 
 ## API Endpoints
 
@@ -33,6 +39,7 @@ This project is a small service for telecom-style customer management. It keeps 
 - `GET /api/user/{id}`
 - `GET /api/user/name/{name}`
 - `GET /api/user/email/{email}`
+- `GET /api/user/tickets/{userId}`
 - `POST /api/user`
 - `PUT /api/user/{id}`
 - `DELETE /api/user/{id}`
@@ -119,6 +126,18 @@ Expected response:
 }
 ```
 
+### Fetch user tickets
+
+```bash
+curl http://localhost:8081/api/user/tickets/1
+```
+
+Sample response:
+
+```json
+[]
+```
+
 ## Sample Output
 
 ### Get all users
@@ -171,6 +190,8 @@ SubscriptionService/
 │   ├── model/
 │   ├── repository/
 │   ├── service/
+│   ├── BillingDtos/
+│   ├── SupportDtos/
 │   └── SubscriptionServiceApplication.java
 ├── src/main/resources/application.yml
 ├── README.md
@@ -194,19 +215,20 @@ flowchart LR
     AccountService --> AccountDB[(Account table)]
     SubService --> SubDB[(Subscription table)]
 
-    UserDB --- AccountDB
-    UserDB --- SubDB
+    SubService --> Billing["Billing service call"]
+    UserAPI --> TicketAPI["/api/user/tickets/{userId}"]
 ```
 
 ## Learning Highlights
 
 - Modeling one-to-one and one-to-many JPA relationships
-- Using DTOs to separate request payloads from persistence models
-- Designing small CRUD services with clear REST endpoints
-- Returning message-based responses for create/update/delete flows
-- Practicing entity mapping and JSON serialization control
+- Using DTOs to keep request payloads separate from entities
+- Building a subscription flow that includes a downstream billing call
+- Adding a user-facing ticket lookup route in the same service
+- Practicing REST, JPA, and service integration in one project
 
 ## Notes
 
 - `application.yml` is kept in the repository for local configuration.
-- IDE files and build artifacts are excluded from version control.
+- IDE files and build artifacts are intentionally excluded from version control.
+- The user controller also keeps a legacy root mapping for compatibility with older tests.
