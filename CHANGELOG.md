@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented in this file.
 
+## [v3.0.0] - 2026-05-12
+
+Third version of the Telecom Subscription Service.
+
+- Added Eureka client registration and Hystrix dashboard support.
+- Switched the application runtime to port `8080`.
+- Added Hystrix fallback handling for the user ticket lookup flow.
+- Updated subscription creation to call the billing endpoint after validating the user.
+- Simplified `application.yml` to focus on discovery and resilience settings.
+
 ## [v2.0.0] - 2026-05-12
 
 Second version of the Telecom Subscription Service.

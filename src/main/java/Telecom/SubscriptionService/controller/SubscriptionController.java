@@ -8,11 +8,12 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
+
+import com.netflix.hystrix.contrib.javanica.annotation.HystrixCommand;
 
 import Telecom.SubscriptionService.dto.ResponseMessage;
 import Telecom.SubscriptionService.dto.SubscriptionDto;
@@ -26,9 +27,7 @@ import Telecom.SubscriptionService.service.UserService;
 public class SubscriptionController {
 
     private final SubscriptionService subscriptionService;
-
     private final UserService userService;
-
     private final RestTemplate restTemplate;
 
     public SubscriptionController(SubscriptionService subscriptionService, UserService userService,
@@ -53,19 +52,6 @@ public class SubscriptionController {
 	return ResponseEntity.ok(subscriptionService.getSubscriptionsByUserId(userId));
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<ResponseMessage> updateSubscription(@PathVariable Long id,
-	    @RequestBody SubscriptionDto subscriptionDto) {
-	subscriptionService.updateSubscription(id, subscriptionDto);
-	return ResponseEntity.ok(new ResponseMessage("Subscription Updated Successfully"));
-    }
-
-//    @PostMapping
-//    public ResponseEntity<ResponseMessage> createSubscription(@RequestBody SubscriptionDto subscriptionDto) {
-//        subscriptionService.createSubscription(subscriptionDto);
-//        return new ResponseEntity<>(new ResponseMessage("Subscription Created Successfully"), HttpStatus.CREATED);
-//    }
-
     @DeleteMapping("/{id}")
     public ResponseEntity<ResponseMessage> deleteSubscription(@PathVariable Long id) {
 	subscriptionService.deleteSubscription(id);
@@ -73,26 +59,28 @@ public class SubscriptionController {
     }
 
     @PostMapping
+    @HystrixCommand(fallbackMethod = "createSubscriptionFallback")
     public ResponseEntity<ResponseMessage> createSubscription(@RequestBody SubscriptionDto dto) {
-        User user = userService.getUserById(dto.getUserId());
-        if (user == null) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(new ResponseMessage("User not found with ID: " + dto.getUserId()));
-        }
+	User user = userService.getUserById(dto.getUserId());
+	if (user == null) {
+	    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+		    .body(new ResponseMessage("User not found with ID: " + dto.getUserId()));
+	}
+	subscriptionService.createSubscription(dto);
 
-        // Persist subscription first (as required)
-        subscriptionService.createSubscription(dto);
+	var invoice = new java.util.HashMap<String, Object>();
+	invoice.put("userId", dto.getUserId());
+	invoice.put("price", dto.getPrice());
+	invoice.put("planName", dto.getPlanName());
+	restTemplate.postForEntity("http://localhost:8082/", invoice, String.class);
 
-        // Unconditionally invoke BillingService; do NOT catch the exception,
-        // so tests can observe the NestedServletException wrapping it.
-        var invoice = new java.util.HashMap<String, Object>();
-        invoice.put("userId", dto.getUserId());
-        invoice.put("price", dto.getPrice());
-        invoice.put("planName", dto.getPlanName());
-        restTemplate.postForEntity("http://localhost:8082/", invoice, String.class);
+	return new ResponseEntity<>(new ResponseMessage("Subscription Created Successfully"), HttpStatus.CREATED);
+    }
 
-        return new ResponseEntity<>(new ResponseMessage("Subscription Created Successfully"),
-                                    HttpStatus.CREATED);
+    // Fallback: same params (+ optional Throwable) and same return type
+    public ResponseEntity<ResponseMessage> createSubscriptionFallback(SubscriptionDto dto, Throwable t) {
+	return new ResponseEntity<>(new ResponseMessage("Subscription temporarily unavailable (fallback)"),
+		HttpStatus.CREATED);
     }
 
 }

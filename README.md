@@ -1,12 +1,12 @@
 # Telecom Subscription Service
 
-Spring Boot REST API for telecom user, account, and subscription management with MySQL persistence.
+Spring Boot REST API for telecom user, account, and subscription management with Eureka registration and Hystrix-based fallback support.
 
 ## Overview
 
-This project manages telecom customer data in a single Spring Boot service. The application keeps user records, account details, and subscription plans together, while the v2 update adds a ticket lookup route and a subscription flow that hands off billing work to a downstream service call.
+This project manages telecom customer data in one Spring Boot service. The earlier versions focused on CRUD for users, accounts, and subscriptions. Version 3 adds service-discovery and resilience support, so the application now registers with Eureka, exposes Hystrix monitoring, and wraps the user ticket lookup in a fallback flow.
 
-The project is useful for understanding CRUD APIs, JPA relationships, DTO mapping, and service-to-service integration through `RestTemplate`.
+The project is useful for understanding CRUD APIs, JPA relationships, DTO mapping, service discovery, and circuit-breaker style integration through `RestTemplate` and Hystrix.
 
 ## Concepts / Features Covered
 
@@ -14,10 +14,12 @@ The project is useful for understanding CRUD APIs, JPA relationships, DTO mappin
 - Spring Data JPA entities and repositories
 - One-to-one and one-to-many mapping
 - DTO-based request handling
-- MySQL persistence
 - User, account, and subscription CRUD
 - User ticket lookup endpoint
+- Hystrix fallback for ticket retrieval
 - Subscription creation with downstream billing call
+- Eureka client registration
+- Hystrix dashboard and metrics exposure
 - JSON serialization control with `@JsonIgnoreProperties`
 
 ## Tech Stack
@@ -26,10 +28,13 @@ The project is useful for understanding CRUD APIs, JPA relationships, DTO mappin
 - Spring Boot 2.7.13
 - Spring Web
 - Spring Data JPA
+- Spring Cloud Netflix Eureka Client
+- Spring Cloud Netflix Hystrix
+- Hystrix Dashboard
+- RestTemplate
 - MySQL
 - Lombok
 - Maven
-- RestTemplate
 
 ## API Endpoints
 
@@ -59,7 +64,6 @@ The project is useful for understanding CRUD APIs, JPA relationships, DTO mappin
 - `GET /api/subscription/{id}`
 - `GET /api/subscription/userId/{userId}`
 - `POST /api/subscription`
-- `PUT /api/subscription/{id}`
 - `DELETE /api/subscription/{id}`
 
 ## Example Requests
@@ -67,7 +71,7 @@ The project is useful for understanding CRUD APIs, JPA relationships, DTO mappin
 ### Create a user
 
 ```bash
-curl -X POST http://localhost:8081/api/user \
+curl -X POST http://localhost:8080/api/user \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Asha Patel",
@@ -85,30 +89,10 @@ Expected response:
 }
 ```
 
-### Create an account
-
-```bash
-curl -X POST http://localhost:8081/account \
-  -H "Content-Type: application/json" \
-  -d '{
-    "user": { "id": 1 },
-    "balance": "2500",
-    "details": "Primary billing account"
-  }'
-```
-
-Expected response:
-
-```json
-{
-  "message": "Account Created Successfully"
-}
-```
-
 ### Create a subscription
 
 ```bash
-curl -X POST http://localhost:8081/api/subscription \
+curl -X POST http://localhost:8080/api/subscription \
   -H "Content-Type: application/json" \
   -d '{
     "userId": 1,
@@ -126,16 +110,28 @@ Expected response:
 }
 ```
 
+Fallback response:
+
+```json
+{
+  "message": "Subscription temporarily unavailable (fallback)"
+}
+```
+
 ### Fetch user tickets
 
 ```bash
-curl http://localhost:8081/api/user/tickets/1
+curl http://localhost:8080/api/user/tickets/1
 ```
 
-Sample response:
+Fallback response:
 
 ```json
-[]
+[
+  {
+    "message": "Tickets unavailable (fallback)"
+  }
+]
 ```
 
 ## Sample Output
@@ -169,10 +165,10 @@ Sample response:
 
 ## How to Run
 
-1. Create a MySQL database named `telecom_user_service`.
-2. Update the username and password in `src/main/resources/application.yml` if your local MySQL setup is different.
+1. Start your Eureka server on `http://localhost:8761`.
+2. Provide MySQL datasource settings in your local environment or profile, since this snapshot keeps discovery and Hystrix settings in `application.yml`.
 3. Start the application with Maven or from your IDE.
-4. Call the endpoints on port `8081`.
+4. Call the endpoints on port `8080`.
 
 Example:
 
@@ -207,28 +203,26 @@ flowchart LR
     Client --> AccountAPI["/account"]
     Client --> SubAPI["/api/subscription"]
 
-    UserAPI --> UserService["UserService"]
-    AccountAPI --> AccountService["AccountService"]
-    SubAPI --> SubService["SubscriptionService"]
+    Eureka["Eureka Server :8761"] --- App["SubscriptionService :8080"]
+    App --> UserService["UserService"]
+    App --> AccountService["AccountService"]
+    App --> SubService["SubscriptionService"]
 
-    UserService --> UserDB[(User table)]
-    AccountService --> AccountDB[(Account table)]
-    SubService --> SubDB[(Subscription table)]
-
-    SubService --> Billing["Billing service call"]
-    UserAPI --> TicketAPI["/api/user/tickets/{userId}"]
+    UserService --> UserTickets["/tickets/{userId}"]
+    UserTickets --> Fallback["Hystrix fallback"]
+    SubService --> Billing["Billing call"]
 ```
 
 ## Learning Highlights
 
-- Modeling one-to-one and one-to-many JPA relationships
-- Using DTOs to keep request payloads separate from entities
-- Building a subscription flow that includes a downstream billing call
-- Adding a user-facing ticket lookup route in the same service
-- Practicing REST, JPA, and service integration in one project
+- Using Eureka client registration in a Spring Boot app
+- Adding Hystrix fallback behavior for unstable remote calls
+- Keeping user, account, and subscription CRUD in one service
+- Adding a separate ticket lookup path for users
+- Managing JPA relationships while exposing DTO-friendly REST APIs
 
 ## Notes
 
-- `application.yml` is kept in the repository for local configuration.
+- The application keeps `application.yml` focused on discovery and resilience settings.
+- Local datasource settings are expected to be supplied outside this file.
 - IDE files and build artifacts are intentionally excluded from version control.
-- The user controller also keeps a legacy root mapping for compatibility with older tests.
