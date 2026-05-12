@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented in this file.
 
+## [v4.0.0] - 2026-05-12
+
+Fourth version of the Telecom Subscription Service.
+
+- Added OpenFeign clients for billing and support service calls.
+- Switched subscription creation to create invoices through the billing service client.
+- Updated user ticket lookup to use the support service client.
+- Kept Eureka client registration and Hystrix runtime support in place.
+- Expanded the README with the new service-to-service flow and examples.
+
 ## [v3.0.0] - 2026-05-12
 
 Third version of the Telecom Subscription Service.

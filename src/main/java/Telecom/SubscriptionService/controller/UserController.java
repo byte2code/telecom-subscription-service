@@ -13,8 +13,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.netflix.hystrix.contrib.javanica.annotation.HystrixCommand;
-
 import Telecom.SubscriptionService.dto.ResponseMessage;
 import Telecom.SubscriptionService.dto.UserDto;
 import Telecom.SubscriptionService.model.User;
@@ -75,12 +73,7 @@ public class UserController {
 //    }
     
     @GetMapping("/tickets/{userId}")
-    @HystrixCommand(fallbackMethod = "getUserTicketsFallback")
     public ResponseEntity<List<Object>> getUserTickets(@PathVariable Long userId) {
       return ResponseEntity.ok(userService.getUserTickets(userId));
     }
-    
-    public ResponseEntity<List<Object>> getUserTicketsFallback(@PathVariable Long userId, Throwable t) {
-	  return ResponseEntity.ok(java.util.List.of(java.util.Map.of("message", "Tickets unavailable (fallback)")));
-	}
 }

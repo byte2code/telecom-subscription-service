@@ -1,12 +1,12 @@
 # Telecom Subscription Service
 
-Spring Boot REST API for telecom user, account, and subscription management with Eureka registration and Hystrix-based fallback support.
+Spring Boot REST API for telecom user, account, and subscription management with Eureka registration, Hystrix support, and Feign-based downstream calls.
 
 ## Overview
 
-This project manages telecom customer data in one Spring Boot service. The earlier versions focused on CRUD for users, accounts, and subscriptions. Version 3 adds service-discovery and resilience support, so the application now registers with Eureka, exposes Hystrix monitoring, and wraps the user ticket lookup in a fallback flow.
+This project manages telecom customer data in a single Spring Boot service. Version 4 keeps the existing user, account, and subscription CRUD flows, but changes the integration style: subscription creation now uses Feign to talk to the billing service, and user ticket retrieval is routed through a Feign client for the support service.
 
-The project is useful for understanding CRUD APIs, JPA relationships, DTO mapping, service discovery, and circuit-breaker style integration through `RestTemplate` and Hystrix.
+The project is useful for understanding CRUD APIs, JPA relationships, DTO mapping, service discovery, and declarative service-to-service communication.
 
 ## Concepts / Features Covered
 
@@ -15,11 +15,11 @@ The project is useful for understanding CRUD APIs, JPA relationships, DTO mappin
 - One-to-one and one-to-many mapping
 - DTO-based request handling
 - User, account, and subscription CRUD
-- User ticket lookup endpoint
-- Hystrix fallback for ticket retrieval
-- Subscription creation with downstream billing call
 - Eureka client registration
 - Hystrix dashboard and metrics exposure
+- OpenFeign clients for billing and support calls
+- Subscription creation with downstream invoice creation
+- Ticket retrieval from support-service
 - JSON serialization control with `@JsonIgnoreProperties`
 
 ## Tech Stack
@@ -30,6 +30,7 @@ The project is useful for understanding CRUD APIs, JPA relationships, DTO mappin
 - Spring Data JPA
 - Spring Cloud Netflix Eureka Client
 - Spring Cloud Netflix Hystrix
+- Spring Cloud OpenFeign
 - Hystrix Dashboard
 - RestTemplate
 - MySQL
@@ -110,28 +111,16 @@ Expected response:
 }
 ```
 
-Fallback response:
-
-```json
-{
-  "message": "Subscription temporarily unavailable (fallback)"
-}
-```
-
 ### Fetch user tickets
 
 ```bash
 curl http://localhost:8080/api/user/tickets/1
 ```
 
-Fallback response:
+Sample response:
 
 ```json
-[
-  {
-    "message": "Tickets unavailable (fallback)"
-  }
-]
+[]
 ```
 
 ## Sample Output
@@ -166,9 +155,10 @@ Fallback response:
 ## How to Run
 
 1. Start your Eureka server on `http://localhost:8761`.
-2. Provide MySQL datasource settings in your local environment or profile, since this snapshot keeps discovery and Hystrix settings in `application.yml`.
-3. Start the application with Maven or from your IDE.
-4. Call the endpoints on port `8080`.
+2. Make sure the downstream billing and support services are available if you want the Feign calls to succeed.
+3. Provide MySQL datasource settings in your local environment or profile, since this snapshot keeps discovery and resilience settings in `application.yml`.
+4. Start the application with Maven or from your IDE.
+5. Call the endpoints on port `8080`.
 
 Example:
 
@@ -183,6 +173,7 @@ SubscriptionService/
 ├── src/main/java/Telecom/SubscriptionService/
 │   ├── controller/
 │   ├── dto/
+│   ├── feign/
 │   ├── model/
 │   ├── repository/
 │   ├── service/
@@ -208,17 +199,18 @@ flowchart LR
     App --> AccountService["AccountService"]
     App --> SubService["SubscriptionService"]
 
-    UserService --> UserTickets["/tickets/{userId}"]
-    UserTickets --> Fallback["Hystrix fallback"]
-    SubService --> Billing["Billing call"]
+    SubService --> BillingClient["billing-service Feign client"]
+    SubService --> SupportClient["support-service Feign client"]
+    UserAPI --> Tickets["/api/user/tickets/{userId}"]
+    Tickets --> SupportClient
 ```
 
 ## Learning Highlights
 
 - Using Eureka client registration in a Spring Boot app
-- Adding Hystrix fallback behavior for unstable remote calls
+- Replacing direct `RestTemplate` integration with Feign clients
+- Adding separate downstream calls for billing and support
 - Keeping user, account, and subscription CRUD in one service
-- Adding a separate ticket lookup path for users
 - Managing JPA relationships while exposing DTO-friendly REST APIs
 
 ## Notes

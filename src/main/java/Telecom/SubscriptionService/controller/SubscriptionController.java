@@ -67,17 +67,14 @@ public class SubscriptionController {
 		    .body(new ResponseMessage("User not found with ID: " + dto.getUserId()));
 	}
 	subscriptionService.createSubscription(dto);
-
 	var invoice = new java.util.HashMap<String, Object>();
 	invoice.put("userId", dto.getUserId());
 	invoice.put("price", dto.getPrice());
 	invoice.put("planName", dto.getPlanName());
 	restTemplate.postForEntity("http://localhost:8082/", invoice, String.class);
-
 	return new ResponseEntity<>(new ResponseMessage("Subscription Created Successfully"), HttpStatus.CREATED);
     }
 
-    // Fallback: same params (+ optional Throwable) and same return type
     public ResponseEntity<ResponseMessage> createSubscriptionFallback(SubscriptionDto dto, Throwable t) {
 	return new ResponseEntity<>(new ResponseMessage("Subscription temporarily unavailable (fallback)"),
 		HttpStatus.CREATED);
