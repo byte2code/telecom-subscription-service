@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented in this file.
 
+## [v5.0.0] - 2026-05-28
+
+Fifth version of the Telecom Subscription Service.
+
+- Added explicit subscription lifecycle states: `REQUESTED`, `ACTIVE`, `SUSPENDED`, `CANCELLED`, and `PAYMENT_FAILED`.
+- Updated subscription creation to start in `REQUESTED` and move to `ACTIVE` after successful billing.
+- Added lifecycle transition endpoints for activate, suspend, cancel, and payment-failed handling.
+- Removed the redundant hardcoded billing call from the subscription controller.
+- Updated the README with lifecycle examples and an updated flow diagram.
+
 ## [v4.0.0] - 2026-05-12
 
 Fourth version of the Telecom Subscription Service.

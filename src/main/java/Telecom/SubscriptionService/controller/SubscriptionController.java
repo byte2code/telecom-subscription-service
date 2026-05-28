@@ -11,9 +11,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.client.RestTemplate;
-
-import com.netflix.hystrix.contrib.javanica.annotation.HystrixCommand;
 
 import Telecom.SubscriptionService.dto.ResponseMessage;
 import Telecom.SubscriptionService.dto.SubscriptionDto;
@@ -28,13 +25,10 @@ public class SubscriptionController {
 
     private final SubscriptionService subscriptionService;
     private final UserService userService;
-    private final RestTemplate restTemplate;
 
-    public SubscriptionController(SubscriptionService subscriptionService, UserService userService,
-	    RestTemplate restTemplate) {
+    public SubscriptionController(SubscriptionService subscriptionService, UserService userService) {
 	this.subscriptionService = subscriptionService;
 	this.userService = userService;
-	this.restTemplate = restTemplate;
     }
 
     @GetMapping
@@ -59,25 +53,76 @@ public class SubscriptionController {
     }
 
     @PostMapping
-    @HystrixCommand(fallbackMethod = "createSubscriptionFallback")
     public ResponseEntity<ResponseMessage> createSubscription(@RequestBody SubscriptionDto dto) {
 	User user = userService.getUserById(dto.getUserId());
 	if (user == null) {
 	    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
 		    .body(new ResponseMessage("User not found with ID: " + dto.getUserId()));
 	}
-	subscriptionService.createSubscription(dto);
-	var invoice = new java.util.HashMap<String, Object>();
-	invoice.put("userId", dto.getUserId());
-	invoice.put("price", dto.getPrice());
-	invoice.put("planName", dto.getPlanName());
-	restTemplate.postForEntity("http://localhost:8082/", invoice, String.class);
-	return new ResponseEntity<>(new ResponseMessage("Subscription Created Successfully"), HttpStatus.CREATED);
+	Subscription created = subscriptionService.createSubscription(dto);
+	if (created == null) {
+	    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+		    .body(new ResponseMessage("Subscription could not be created"));
+	}
+	return new ResponseEntity<>(
+		new ResponseMessage("Subscription created with status " + created.getStatus()),
+		HttpStatus.CREATED);
     }
 
-    public ResponseEntity<ResponseMessage> createSubscriptionFallback(SubscriptionDto dto, Throwable t) {
-	return new ResponseEntity<>(new ResponseMessage("Subscription temporarily unavailable (fallback)"),
-		HttpStatus.CREATED);
+    @PostMapping("/{id}/activate")
+    public ResponseEntity<ResponseMessage> activateSubscription(@PathVariable Long id) {
+	try {
+	    Subscription subscription = subscriptionService.activateSubscription(id);
+	    if (subscription == null) {
+		return ResponseEntity.status(HttpStatus.NOT_FOUND)
+			.body(new ResponseMessage("Subscription not found with ID: " + id));
+	    }
+	    return ResponseEntity.ok(new ResponseMessage("Subscription marked ACTIVE"));
+	} catch (IllegalStateException ex) {
+	    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ResponseMessage(ex.getMessage()));
+	}
+    }
+
+    @PostMapping("/{id}/suspend")
+    public ResponseEntity<ResponseMessage> suspendSubscription(@PathVariable Long id) {
+	try {
+	    Subscription subscription = subscriptionService.suspendSubscription(id);
+	    if (subscription == null) {
+		return ResponseEntity.status(HttpStatus.NOT_FOUND)
+			.body(new ResponseMessage("Subscription not found with ID: " + id));
+	    }
+	    return ResponseEntity.ok(new ResponseMessage("Subscription marked SUSPENDED"));
+	} catch (IllegalStateException ex) {
+	    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ResponseMessage(ex.getMessage()));
+	}
+    }
+
+    @PostMapping("/{id}/cancel")
+    public ResponseEntity<ResponseMessage> cancelSubscription(@PathVariable Long id) {
+	try {
+	    Subscription subscription = subscriptionService.cancelSubscription(id);
+	    if (subscription == null) {
+		return ResponseEntity.status(HttpStatus.NOT_FOUND)
+			.body(new ResponseMessage("Subscription not found with ID: " + id));
+	    }
+	    return ResponseEntity.ok(new ResponseMessage("Subscription marked CANCELLED"));
+	} catch (IllegalStateException ex) {
+	    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ResponseMessage(ex.getMessage()));
+	}
+    }
+
+    @PostMapping("/{id}/payment-failed")
+    public ResponseEntity<ResponseMessage> markPaymentFailed(@PathVariable Long id) {
+	try {
+	    Subscription subscription = subscriptionService.markPaymentFailed(id);
+	    if (subscription == null) {
+		return ResponseEntity.status(HttpStatus.NOT_FOUND)
+			.body(new ResponseMessage("Subscription not found with ID: " + id));
+	    }
+	    return ResponseEntity.ok(new ResponseMessage("Subscription marked PAYMENT_FAILED"));
+	} catch (IllegalStateException ex) {
+	    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ResponseMessage(ex.getMessage()));
+	}
     }
 
 }

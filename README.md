@@ -1,12 +1,12 @@
 # Telecom Subscription Service
 
-Spring Boot REST API for telecom user, account, and subscription management with Eureka registration, Hystrix support, and Feign-based downstream calls.
+Spring Boot REST API for telecom user, account, and subscription management with Eureka registration, Hystrix support, Feign-based downstream calls, and an explicit subscription lifecycle.
 
 ## Overview
 
-This project manages telecom customer data in a single Spring Boot service. Version 4 keeps the existing user, account, and subscription CRUD flows, but changes the integration style: subscription creation now uses Feign to talk to the billing service, and user ticket retrieval is routed through a Feign client for the support service.
+This project manages telecom customer data in a single Spring Boot service. Version 5 keeps the existing user and account flows, but turns subscriptions into a lifecycle-driven workflow. Subscription creation now starts in `REQUESTED`, billing success promotes the subscription to `ACTIVE`, and the service exposes explicit transitions for suspend, cancel, and payment failure handling.
 
-The project is useful for understanding CRUD APIs, JPA relationships, DTO mapping, service discovery, and declarative service-to-service communication.
+The project is useful for understanding lifecycle-based APIs, JPA relationships, DTO mapping, service discovery, and declarative service-to-service communication.
 
 ## Concepts / Features Covered
 
@@ -18,7 +18,9 @@ The project is useful for understanding CRUD APIs, JPA relationships, DTO mappin
 - Eureka client registration
 - Hystrix dashboard and metrics exposure
 - OpenFeign clients for billing and support calls
+- Subscription lifecycle states: `REQUESTED`, `ACTIVE`, `SUSPENDED`, `CANCELLED`, `PAYMENT_FAILED`
 - Subscription creation with downstream invoice creation
+- Billing-aware activation and payment failure handling
 - Ticket retrieval from support-service
 - JSON serialization control with `@JsonIgnoreProperties`
 
@@ -65,6 +67,10 @@ The project is useful for understanding CRUD APIs, JPA relationships, DTO mappin
 - `GET /api/subscription/{id}`
 - `GET /api/subscription/userId/{userId}`
 - `POST /api/subscription`
+- `POST /api/subscription/{id}/activate`
+- `POST /api/subscription/{id}/suspend`
+- `POST /api/subscription/{id}/cancel`
+- `POST /api/subscription/{id}/payment-failed`
 - `DELETE /api/subscription/{id}`
 
 ## Example Requests
@@ -107,8 +113,16 @@ Expected response:
 
 ```json
 {
-  "message": "Subscription Created Successfully"
+  "message": "Subscription created with status ACTIVE"
 }
+```
+
+### Move a subscription through its lifecycle
+
+```bash
+curl -X POST http://localhost:8080/api/subscription/1/suspend
+curl -X POST http://localhost:8080/api/subscription/1/activate
+curl -X POST http://localhost:8080/api/subscription/1/cancel
 ```
 
 ### Fetch user tickets
@@ -199,7 +213,15 @@ flowchart LR
     App --> AccountService["AccountService"]
     App --> SubService["SubscriptionService"]
 
-    SubService --> BillingClient["billing-service Feign client"]
+    SubService --> Requested["REQUESTED"]
+    Requested --> BillingClient["billing-service Feign client"]
+    BillingClient --> Active["ACTIVE"]
+    BillingClient --> PaymentFailed["PAYMENT_FAILED"]
+    Active --> Suspended["SUSPENDED"]
+    Suspended --> Active
+    Active --> Cancelled["CANCELLED"]
+    Requested --> Cancelled
+    PaymentFailed --> Active
     SubService --> SupportClient["support-service Feign client"]
     UserAPI --> Tickets["/api/user/tickets/{userId}"]
     Tickets --> SupportClient
@@ -210,7 +232,8 @@ flowchart LR
 - Using Eureka client registration in a Spring Boot app
 - Replacing direct `RestTemplate` integration with Feign clients
 - Adding separate downstream calls for billing and support
-- Keeping user, account, and subscription CRUD in one service
+- Turning subscriptions into a lifecycle-driven workflow instead of plain CRUD
+- Managing billing-aware state transitions for subscriptions
 - Managing JPA relationships while exposing DTO-friendly REST APIs
 
 ## Notes

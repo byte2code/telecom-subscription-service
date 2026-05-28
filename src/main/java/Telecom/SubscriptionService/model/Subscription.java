@@ -20,6 +20,9 @@ public class Subscription implements Serializable {
     private String planName;
     private String planDetails;
 
+    @Enumerated(EnumType.STRING)
+    private SubscriptionStatus status = SubscriptionStatus.REQUESTED;
+
     @ManyToOne
     @JoinColumn(name = "user_id")
     @JsonIgnoreProperties("subscriptionList")

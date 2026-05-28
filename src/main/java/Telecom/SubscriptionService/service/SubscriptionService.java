@@ -11,6 +11,7 @@ import Telecom.SubscriptionService.feign.BillingService;
 import Telecom.SubscriptionService.feign.SupportService;
 import Telecom.SubscriptionService.dto.SubscriptionDto;
 import Telecom.SubscriptionService.model.Subscription;
+import Telecom.SubscriptionService.model.SubscriptionStatus;
 import Telecom.SubscriptionService.model.User;
 import Telecom.SubscriptionService.repository.SubscriptionRepository;
 import Telecom.SubscriptionService.repository.UserRepository;
@@ -48,25 +49,93 @@ public class SubscriptionService {
 	});
     }
 
-    // Save subscription and delegate invoice creation to billing-service via Feign
-    public void createSubscription(SubscriptionDto dto) {
-	userRepository.findById(dto.getUserId()).ifPresent(user -> {
-	    Subscription subscription = new Subscription();
-	    subscription.setPrice(dto.getPrice());
-	    subscription.setPlanName(dto.getPlanName());
-	    subscription.setPlanDetails(dto.getPlanDetails());
-	    subscription.setUser(user);
-	    subscriptionRepository.save(subscription);
+    // Save subscription in REQUESTED state and move it through billing-driven lifecycle.
+    public Subscription createSubscription(SubscriptionDto dto) {
+	User user = userRepository.findById(dto.getUserId()).orElse(null);
+	if (user == null) {
+	    return null;
+	}
 
-	    // Build invoice payload for billing-service
-	    Map<String, Object> invoice = new HashMap<>();
-	    invoice.put("userId", dto.getUserId());
-	    invoice.put("price", dto.getPrice());
-	    invoice.put("planName", dto.getPlanName());
+	Subscription subscription = new Subscription();
+	subscription.setPrice(dto.getPrice());
+	subscription.setPlanName(dto.getPlanName());
+	subscription.setPlanDetails(dto.getPlanDetails());
+	subscription.setUser(user);
+	subscription.setStatus(SubscriptionStatus.REQUESTED);
+	subscription = subscriptionRepository.save(subscription);
 
-	    // Feign call replaces RestTemplate
+	Map<String, Object> invoice = new HashMap<>();
+	invoice.put("userId", dto.getUserId());
+	invoice.put("price", dto.getPrice());
+	invoice.put("planName", dto.getPlanName());
+	invoice.put("subscriptionId", subscription.getId());
+
+	try {
 	    billingService.createInvoice(invoice);
-	});
+	    subscription.setStatus(SubscriptionStatus.ACTIVE);
+	} catch (Exception ex) {
+	    subscription.setStatus(SubscriptionStatus.PAYMENT_FAILED);
+	}
+
+	return subscriptionRepository.save(subscription);
+    }
+
+    public Subscription activateSubscription(Long id) {
+	return transitionSubscriptionStatus(id, SubscriptionStatus.ACTIVE);
+    }
+
+    public Subscription suspendSubscription(Long id) {
+	return transitionSubscriptionStatus(id, SubscriptionStatus.SUSPENDED);
+    }
+
+    public Subscription cancelSubscription(Long id) {
+	return transitionSubscriptionStatus(id, SubscriptionStatus.CANCELLED);
+    }
+
+    public Subscription markPaymentFailed(Long id) {
+	return transitionSubscriptionStatus(id, SubscriptionStatus.PAYMENT_FAILED);
+    }
+
+    private Subscription transitionSubscriptionStatus(Long id, SubscriptionStatus targetStatus) {
+	Subscription subscription = subscriptionRepository.findById(id).orElse(null);
+	if (subscription == null) {
+	    return null;
+	}
+
+	SubscriptionStatus currentStatus = subscription.getStatus();
+	if (!isValidTransition(currentStatus, targetStatus)) {
+	    throw new IllegalStateException(
+		    "Cannot change subscription status from " + currentStatus + " to " + targetStatus);
+	}
+
+	subscription.setStatus(targetStatus);
+	return subscriptionRepository.save(subscription);
+    }
+
+    private boolean isValidTransition(SubscriptionStatus currentStatus, SubscriptionStatus targetStatus) {
+	if (currentStatus == null) {
+	    currentStatus = SubscriptionStatus.REQUESTED;
+	}
+
+	if (currentStatus == targetStatus) {
+	    return true;
+	}
+
+	switch (targetStatus) {
+	case ACTIVE:
+	    return currentStatus == SubscriptionStatus.REQUESTED || currentStatus == SubscriptionStatus.PAYMENT_FAILED
+		    || currentStatus == SubscriptionStatus.SUSPENDED;
+	case SUSPENDED:
+	    return currentStatus == SubscriptionStatus.ACTIVE;
+	case CANCELLED:
+	    return currentStatus != SubscriptionStatus.CANCELLED;
+	case PAYMENT_FAILED:
+	    return currentStatus == SubscriptionStatus.REQUESTED || currentStatus == SubscriptionStatus.ACTIVE;
+	case REQUESTED:
+	    return false;
+	default:
+	    return false;
+	}
     }
 
     public void deleteSubscription(Long id) {
