@@ -74,6 +74,6 @@ public class UserController {
     
     @GetMapping("/tickets/{userId}")
     public ResponseEntity<List<Object>> getUserTickets(@PathVariable Long userId) {
-      return ResponseEntity.ok(userService.getUserTickets(userId));
+      return ResponseEntity.ok(userService.getUserTickets(userId).join());
     }
 }

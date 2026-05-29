@@ -1,16 +1,20 @@
 package Telecom.SubscriptionService.service;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
-import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
-import com.netflix.hystrix.contrib.javanica.annotation.HystrixCommand;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
+import io.github.resilience4j.timelimiter.annotation.TimeLimiter;
 import Telecom.SubscriptionService.dto.UserDto;
+import Telecom.SubscriptionService.feign.SupportService;
 import Telecom.SubscriptionService.model.User;
 import Telecom.SubscriptionService.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +24,8 @@ import lombok.RequiredArgsConstructor;
 public class UserService {
 
     private final UserRepository userRepository;
-    private final RestTemplate restTemplate; // Ensure RestTemplate bean defined in config
+    private final SupportService supportService;
+    private final ObjectMapper objectMapper;
 
     public List<User> getAllUsers() {
 	return userRepository.findAll();
@@ -63,25 +68,25 @@ public class UserService {
 	userRepository.deleteById(id);
     }
 
-//    public List<Object> getUserTickets(Long userId) {
-//        String url = "http://localhost:8083/"; // align with test stub
-//        ResponseEntity<List<Object>> response = restTemplate.exchange(
-//            url, HttpMethod.GET, null, new ParameterizedTypeReference<List<Object>>() {});
-//        return response.getBody() != null ? response.getBody() : java.util.Collections.emptyList();
-//    }
-//    
-    @HystrixCommand(fallbackMethod = "getUserTicketsFallback")
-    public List<Object> getUserTickets(Long userId) {
-	String url = "http://localhost:8083/tickets/" + userId; // align with tests/mock
-	ResponseEntity<List<Object>> resp = restTemplate.exchange(url, HttpMethod.GET, null,
-		new ParameterizedTypeReference<List<Object>>() {
+    @CircuitBreaker(name = "supportTickets", fallbackMethod = "getUserTicketsFallback")
+    @Retry(name = "supportTickets")
+    @TimeLimiter(name = "supportTickets")
+    public CompletableFuture<List<Object>> getUserTickets(Long userId) {
+	return CompletableFuture.supplyAsync(() -> {
+	    String payload = supportService.getTickets(userId);
+	    try {
+		List<Object> tickets = objectMapper.readValue(payload, new TypeReference<List<Object>>() {
 		});
-	return resp.getBody() != null ? resp.getBody() : java.util.Collections.emptyList();
+		return tickets != null ? tickets : Collections.emptyList();
+	    } catch (Exception ex) {
+		throw new IllegalStateException("Failed to parse support tickets response", ex);
+	    }
+	});
     }
 
     // Fallback signature: same params (+ optional Throwable)
-    public List<Object> getUserTicketsFallback(Long userId, Throwable t) {
-	return java.util.List.of(java.util.Map.of("message", "Tickets unavailable (fallback)"));
+    public CompletableFuture<List<Object>> getUserTicketsFallback(Long userId, Throwable t) {
+	return CompletableFuture.completedFuture(List.of(Map.of("message", "Tickets unavailable (fallback)")));
     }
 
 }

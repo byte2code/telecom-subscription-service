@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented in this file.
 
+## [v6.0.0] - 2026-05-29
+
+Sixth version of the Telecom Subscription Service.
+
+- Replaced the Hystrix-based user ticket fallback with Resilience4j circuit breaker, retry, timeout, and fallback support.
+- Switched the support-ticket flow to an async Feign-backed path with fallback handling.
+- Added Resilience4j configuration for the support ticket lookup use case.
+- Removed Hystrix bootstrap and dashboard wiring from the application.
+- Updated the README and added service-level tests for the new resilience path.
+
 ## [v5.0.0] - 2026-05-28
 
 Fifth version of the Telecom Subscription Service.

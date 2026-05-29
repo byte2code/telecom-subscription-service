@@ -1,12 +1,12 @@
 # Telecom Subscription Service
 
-Spring Boot REST API for telecom user, account, and subscription management with Eureka registration, Hystrix support, Feign-based downstream calls, and an explicit subscription lifecycle.
+Spring Boot REST API for telecom user, account, and subscription management with Eureka registration, Resilience4j fault tolerance, Feign-based downstream calls, and an explicit subscription lifecycle.
 
 ## Overview
 
 This project manages telecom customer data in a single Spring Boot service. Version 5 keeps the existing user and account flows, but turns subscriptions into a lifecycle-driven workflow. Subscription creation now starts in `REQUESTED`, billing success promotes the subscription to `ACTIVE`, and the service exposes explicit transitions for suspend, cancel, and payment failure handling.
 
-The project is useful for understanding lifecycle-based APIs, JPA relationships, DTO mapping, service discovery, and declarative service-to-service communication.
+The project is useful for understanding lifecycle-based APIs, JPA relationships, DTO mapping, service discovery, declarative service-to-service communication, and resilience patterns for downstream failures.
 
 ## Concepts / Features Covered
 
@@ -16,7 +16,7 @@ The project is useful for understanding lifecycle-based APIs, JPA relationships,
 - DTO-based request handling
 - User, account, and subscription CRUD
 - Eureka client registration
-- Hystrix dashboard and metrics exposure
+- Resilience4j circuit breaker, retry, timeout, and fallback support
 - OpenFeign clients for billing and support calls
 - Subscription lifecycle states: `REQUESTED`, `ACTIVE`, `SUSPENDED`, `CANCELLED`, `PAYMENT_FAILED`
 - Subscription creation with downstream invoice creation
@@ -31,10 +31,9 @@ The project is useful for understanding lifecycle-based APIs, JPA relationships,
 - Spring Web
 - Spring Data JPA
 - Spring Cloud Netflix Eureka Client
-- Spring Cloud Netflix Hystrix
+- Spring AOP
+- Resilience4j Spring Boot 2
 - Spring Cloud OpenFeign
-- Hystrix Dashboard
-- RestTemplate
 - MySQL
 - Lombok
 - Maven
@@ -222,7 +221,8 @@ flowchart LR
     Active --> Cancelled["CANCELLED"]
     Requested --> Cancelled
     PaymentFailed --> Active
-    SubService --> SupportClient["support-service Feign client"]
+    UserService --> Resilience["Resilience4j circuit breaker + retry + timeout"]
+    Resilience --> SupportClient["support-service Feign client"]
     UserAPI --> Tickets["/api/user/tickets/{userId}"]
     Tickets --> SupportClient
 ```
@@ -230,10 +230,11 @@ flowchart LR
 ## Learning Highlights
 
 - Using Eureka client registration in a Spring Boot app
-- Replacing direct `RestTemplate` integration with Feign clients
+- Using Feign clients for downstream billing and support calls
 - Adding separate downstream calls for billing and support
 - Turning subscriptions into a lifecycle-driven workflow instead of plain CRUD
 - Managing billing-aware state transitions for subscriptions
+- Replacing Hystrix with Resilience4j circuit breaker, retry, timeout, and fallback handling
 - Managing JPA relationships while exposing DTO-friendly REST APIs
 
 ## Notes

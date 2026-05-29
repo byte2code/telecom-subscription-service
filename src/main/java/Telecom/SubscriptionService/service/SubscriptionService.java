@@ -142,7 +142,7 @@ public class SubscriptionService {
 	subscriptionRepository.deleteById(id);
     }
 
-    // Feign-backed tickets retrieval to replace any RestTemplate call
+    // Feign-backed tickets retrieval for the support-service fallback path
     public List<Object> getUserTickets(Long userId) {
 	String json = supportService.getTickets(userId);
 	try {
