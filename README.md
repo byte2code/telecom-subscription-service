@@ -1,12 +1,22 @@
 # Telecom Subscription Service
 
-Spring Boot REST API for telecom user, account, and subscription management with Eureka registration, Resilience4j fault tolerance, RabbitMQ billing events, Feign-based downstream calls, and an explicit subscription lifecycle.
+Spring Boot REST API for telecom user, account, and subscription management with Eureka registration, Resilience4j fault tolerance, RabbitMQ billing events, retry/DLQ handling, Feign-based downstream calls, and an explicit subscription lifecycle.
 
 ## Overview
 
 This project manages telecom customer data in a single Spring Boot service. The current version keeps the existing user and account flows, but turns subscriptions into a lifecycle-driven workflow. Subscription creation now starts in `REQUESTED`, billing success promotes the subscription to `ACTIVE`, and the service exposes explicit transitions for suspend, cancel, and payment failure handling.
 
-The project is useful for understanding lifecycle-based APIs, JPA relationships, DTO mapping, service discovery, declarative service-to-service communication, async billing events, and resilience patterns for downstream failures.
+The project is useful for understanding lifecycle-based APIs, JPA relationships, DTO mapping, service discovery, declarative service-to-service communication, async billing events, retry/DLQ patterns, and resilience patterns for downstream failures.
+
+## Architecture
+
+| Layer | Responsibility |
+| --- | --- |
+| API layer | Exposes user, account, and subscription endpoints and returns simple response messages |
+| Domain layer | Keeps the subscription lifecycle explicit with `REQUESTED`, `ACTIVE`, `SUSPENDED`, `CANCELLED`, and `PAYMENT_FAILED` states |
+| Resilience layer | Uses Resilience4j to protect support-ticket lookup with circuit breaker, retry, timeout, and fallback handling |
+| Messaging layer | Publishes RabbitMQ billing events, retries failed consumers, and moves poisoned messages to a dead-letter queue |
+| Integration layer | Talks to `billing-service`, `support-service`, Eureka, and MySQL |
 
 ## Concepts / Features Covered
 
@@ -17,7 +27,7 @@ The project is useful for understanding lifecycle-based APIs, JPA relationships,
 - User, account, and subscription CRUD
 - Eureka client registration
 - Resilience4j circuit breaker, retry, timeout, and fallback support
-- RabbitMQ-driven billing events
+- RabbitMQ-driven billing events with retry and DLQ recovery
 - OpenFeign clients for billing and support calls
 - Subscription lifecycle states: `REQUESTED`, `ACTIVE`, `SUSPENDED`, `CANCELLED`, `PAYMENT_FAILED`
 - Subscription creation with downstream invoice creation
@@ -36,6 +46,7 @@ The project is useful for understanding lifecycle-based APIs, JPA relationships,
 - Spring AOP
 - Resilience4j Spring Boot 2
 - Spring AMQP
+- Spring Retry
 - Spring Cloud OpenFeign
 - RabbitMQ
 - MySQL
@@ -84,6 +95,13 @@ The project is useful for understanding lifecycle-based APIs, JPA relationships,
 | `INVOICE_REQUESTED` | The service asks billing to generate an invoice |
 | `PAYMENT_FAILED` | Billing rejects the invoice request or payment processing fails |
 | `SUPPORT_TICKET_RAISED` | A failed payment is escalated for support follow-up |
+
+## Retry and Dead Letter
+
+| Step | Behavior |
+| --- | --- |
+| Retry | Billing events are retried up to 3 times with exponential backoff |
+| Dead Letter | Messages that still fail are republished to `telecom.billing.dlx` and consumed from `telecom.billing.dlq` |
 
 ## Example Requests
 
@@ -232,6 +250,9 @@ flowchart LR
     Requested --> Rabbit
     Rabbit --> Created["SUBSCRIPTION_CREATED"]
     Rabbit --> Invoice["INVOICE_REQUESTED"]
+    Rabbit --> Listener["BillingEventListener"]
+    Listener --> Retry["Retry x3 + backoff"]
+    Retry --> DLQ["telecom.billing.dlq"]
     BillingClient --> Active["ACTIVE"]
     BillingClient --> PaymentFailed["PAYMENT_FAILED"]
     BillingClient --> FailedEvent["PAYMENT_FAILED event"]
@@ -255,7 +276,7 @@ flowchart LR
 - Turning subscriptions into a lifecycle-driven workflow instead of plain CRUD
 - Managing billing-aware state transitions for subscriptions
 - Replacing Hystrix with Resilience4j circuit breaker, retry, timeout, and fallback handling
-- Publishing RabbitMQ billing events for downstream automation
+- Publishing RabbitMQ billing events with retry and dead-letter handling
 - Managing JPA relationships while exposing DTO-friendly REST APIs
 
 ## Notes

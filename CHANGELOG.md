@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented in this file.
 
+## [v8.0.0] - 2026-05-30
+
+Eighth version of the Telecom Subscription Service.
+
+- Added retry handling for billing-event consumption with exponential backoff.
+- Added a dead-letter queue for poisoned billing messages.
+- Added a dead-letter listener to observe failed billing events separately.
+- Expanded the README architecture section to explain the API, resilience, messaging, and integration layers.
+- Added tests for the retry-aware RabbitMQ configuration and billing listener validation.
+
 ## [v7.0.0] - 2026-05-30
 
 Seventh version of the Telecom Subscription Service.
