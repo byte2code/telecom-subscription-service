@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented in this file.
 
+## [v7.0.0] - 2026-05-30
+
+Seventh version of the Telecom Subscription Service.
+
+- Added RabbitMQ billing events for subscription lifecycle changes.
+- Published `SUBSCRIPTION_CREATED`, `INVOICE_REQUESTED`, `PAYMENT_FAILED`, and `SUPPORT_TICKET_RAISED` events from the subscription flow.
+- Added RabbitMQ exchange, queue, binding, publisher, and listener support.
+- Updated the README with the billing event flow and local RabbitMQ setup notes.
+- Added tests for the event publisher and the subscription service event flow.
+
 ## [v6.0.0] - 2026-05-29
 
 Sixth version of the Telecom Subscription Service.

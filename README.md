@@ -1,12 +1,12 @@
 # Telecom Subscription Service
 
-Spring Boot REST API for telecom user, account, and subscription management with Eureka registration, Resilience4j fault tolerance, Feign-based downstream calls, and an explicit subscription lifecycle.
+Spring Boot REST API for telecom user, account, and subscription management with Eureka registration, Resilience4j fault tolerance, RabbitMQ billing events, Feign-based downstream calls, and an explicit subscription lifecycle.
 
 ## Overview
 
-This project manages telecom customer data in a single Spring Boot service. Version 5 keeps the existing user and account flows, but turns subscriptions into a lifecycle-driven workflow. Subscription creation now starts in `REQUESTED`, billing success promotes the subscription to `ACTIVE`, and the service exposes explicit transitions for suspend, cancel, and payment failure handling.
+This project manages telecom customer data in a single Spring Boot service. The current version keeps the existing user and account flows, but turns subscriptions into a lifecycle-driven workflow. Subscription creation now starts in `REQUESTED`, billing success promotes the subscription to `ACTIVE`, and the service exposes explicit transitions for suspend, cancel, and payment failure handling.
 
-The project is useful for understanding lifecycle-based APIs, JPA relationships, DTO mapping, service discovery, declarative service-to-service communication, and resilience patterns for downstream failures.
+The project is useful for understanding lifecycle-based APIs, JPA relationships, DTO mapping, service discovery, declarative service-to-service communication, async billing events, and resilience patterns for downstream failures.
 
 ## Concepts / Features Covered
 
@@ -17,10 +17,12 @@ The project is useful for understanding lifecycle-based APIs, JPA relationships,
 - User, account, and subscription CRUD
 - Eureka client registration
 - Resilience4j circuit breaker, retry, timeout, and fallback support
+- RabbitMQ-driven billing events
 - OpenFeign clients for billing and support calls
 - Subscription lifecycle states: `REQUESTED`, `ACTIVE`, `SUSPENDED`, `CANCELLED`, `PAYMENT_FAILED`
 - Subscription creation with downstream invoice creation
 - Billing-aware activation and payment failure handling
+- Support ticket escalation through events
 - Ticket retrieval from support-service
 - JSON serialization control with `@JsonIgnoreProperties`
 
@@ -33,7 +35,9 @@ The project is useful for understanding lifecycle-based APIs, JPA relationships,
 - Spring Cloud Netflix Eureka Client
 - Spring AOP
 - Resilience4j Spring Boot 2
+- Spring AMQP
 - Spring Cloud OpenFeign
+- RabbitMQ
 - MySQL
 - Lombok
 - Maven
@@ -71,6 +75,15 @@ The project is useful for understanding lifecycle-based APIs, JPA relationships,
 - `POST /api/subscription/{id}/cancel`
 - `POST /api/subscription/{id}/payment-failed`
 - `DELETE /api/subscription/{id}`
+
+## Billing Event Flow
+
+| Event | When It Happens |
+| --- | --- |
+| `SUBSCRIPTION_CREATED` | A subscription is saved in `REQUESTED` state |
+| `INVOICE_REQUESTED` | The service asks billing to generate an invoice |
+| `PAYMENT_FAILED` | Billing rejects the invoice request or payment processing fails |
+| `SUPPORT_TICKET_RAISED` | A failed payment is escalated for support follow-up |
 
 ## Example Requests
 
@@ -168,10 +181,11 @@ Sample response:
 ## How to Run
 
 1. Start your Eureka server on `http://localhost:8761`.
-2. Make sure the downstream billing and support services are available if you want the Feign calls to succeed.
-3. Provide MySQL datasource settings in your local environment or profile, since this snapshot keeps discovery and resilience settings in `application.yml`.
-4. Start the application with Maven or from your IDE.
-5. Call the endpoints on port `8080`.
+2. Start RabbitMQ on `localhost:5672` if you want the billing events and listener to run.
+3. Make sure the downstream billing and support services are available if you want the Feign calls to succeed.
+4. Provide MySQL datasource settings in your local environment or profile, since this snapshot keeps discovery, resilience, and messaging settings in `application.yml`.
+5. Start the application with Maven or from your IDE.
+6. Call the endpoints on port `8080`.
 
 Example:
 
@@ -211,11 +225,17 @@ flowchart LR
     App --> UserService["UserService"]
     App --> AccountService["AccountService"]
     App --> SubService["SubscriptionService"]
+    App --> Rabbit["RabbitMQ billing exchange"]
 
     SubService --> Requested["REQUESTED"]
     Requested --> BillingClient["billing-service Feign client"]
+    Requested --> Rabbit
+    Rabbit --> Created["SUBSCRIPTION_CREATED"]
+    Rabbit --> Invoice["INVOICE_REQUESTED"]
     BillingClient --> Active["ACTIVE"]
     BillingClient --> PaymentFailed["PAYMENT_FAILED"]
+    BillingClient --> FailedEvent["PAYMENT_FAILED event"]
+    FailedEvent --> SupportEvent["SUPPORT_TICKET_RAISED"]
     Active --> Suspended["SUSPENDED"]
     Suspended --> Active
     Active --> Cancelled["CANCELLED"]
@@ -235,6 +255,7 @@ flowchart LR
 - Turning subscriptions into a lifecycle-driven workflow instead of plain CRUD
 - Managing billing-aware state transitions for subscriptions
 - Replacing Hystrix with Resilience4j circuit breaker, retry, timeout, and fallback handling
+- Publishing RabbitMQ billing events for downstream automation
 - Managing JPA relationships while exposing DTO-friendly REST APIs
 
 ## Notes

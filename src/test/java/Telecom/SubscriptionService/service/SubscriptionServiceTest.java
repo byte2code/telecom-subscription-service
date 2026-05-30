@@ -16,6 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import Telecom.SubscriptionService.dto.SubscriptionDto;
 import Telecom.SubscriptionService.feign.BillingService;
 import Telecom.SubscriptionService.feign.SupportService;
+import Telecom.SubscriptionService.messaging.BillingEventPublisher;
 import Telecom.SubscriptionService.model.Subscription;
 import Telecom.SubscriptionService.model.SubscriptionStatus;
 import Telecom.SubscriptionService.model.User;
@@ -36,6 +37,9 @@ class SubscriptionServiceTest {
 
     @Mock
     private SupportService supportService;
+
+    @Mock
+    private BillingEventPublisher billingEventPublisher;
 
     @InjectMocks
     private SubscriptionService subscriptionService;
@@ -62,6 +66,8 @@ class SubscriptionServiceTest {
 	assertNotNull(subscription);
 	assertEquals(SubscriptionStatus.ACTIVE, subscription.getStatus());
 	verify(billingService, times(1)).createInvoice(any());
+	verify(billingEventPublisher, times(1)).publishSubscriptionCreated(any());
+	verify(billingEventPublisher, times(1)).publishInvoiceRequested(any());
     }
 
     @Test
@@ -77,6 +83,10 @@ class SubscriptionServiceTest {
 	assertNotNull(subscription);
 	assertEquals(SubscriptionStatus.PAYMENT_FAILED, subscription.getStatus());
 	verify(billingService, times(1)).createInvoice(any());
+	verify(billingEventPublisher, times(1)).publishSubscriptionCreated(any());
+	verify(billingEventPublisher, times(1)).publishInvoiceRequested(any());
+	verify(billingEventPublisher, times(1)).publishPaymentFailed(any(), anyString());
+	verify(billingEventPublisher, times(1)).publishSupportTicketRaised(any(), anyString());
     }
 
     @Test
@@ -105,5 +115,21 @@ class SubscriptionServiceTest {
 	Subscription updated = subscriptionService.cancelSubscription(11L);
 
 	assertEquals(SubscriptionStatus.CANCELLED, updated.getStatus());
+    }
+
+    @Test
+    void markPaymentFailedRaisesEvents() {
+	Subscription subscription = new Subscription();
+	subscription.setId(12L);
+	subscription.setStatus(SubscriptionStatus.ACTIVE);
+
+	when(subscriptionRepository.findById(12L)).thenReturn(Optional.of(subscription));
+	when(subscriptionRepository.save(any(Subscription.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+	Subscription updated = subscriptionService.markPaymentFailed(12L);
+
+	assertEquals(SubscriptionStatus.PAYMENT_FAILED, updated.getStatus());
+	verify(billingEventPublisher, times(1)).publishPaymentFailed(any(), anyString());
+	verify(billingEventPublisher, times(1)).publishSupportTicketRaised(any(), anyString());
     }
 }

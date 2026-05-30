@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import Telecom.SubscriptionService.feign.BillingService;
 import Telecom.SubscriptionService.feign.SupportService;
 import Telecom.SubscriptionService.dto.SubscriptionDto;
+import Telecom.SubscriptionService.messaging.BillingEventPublisher;
 import Telecom.SubscriptionService.model.Subscription;
 import Telecom.SubscriptionService.model.SubscriptionStatus;
 import Telecom.SubscriptionService.model.User;
@@ -26,6 +27,7 @@ public class SubscriptionService {
     // Feign clients (must exist under @EnableFeignClients scan)
     private final BillingService billingService;
     private final SupportService supportService;
+    private final BillingEventPublisher billingEventPublisher;
 
     public List<Subscription> getAllSubscriptions() {
 	return subscriptionRepository.findAll();
@@ -63,18 +65,24 @@ public class SubscriptionService {
 	subscription.setUser(user);
 	subscription.setStatus(SubscriptionStatus.REQUESTED);
 	subscription = subscriptionRepository.save(subscription);
+	billingEventPublisher.publishSubscriptionCreated(subscription);
 
 	Map<String, Object> invoice = new HashMap<>();
 	invoice.put("userId", dto.getUserId());
 	invoice.put("price", dto.getPrice());
 	invoice.put("planName", dto.getPlanName());
 	invoice.put("subscriptionId", subscription.getId());
+	billingEventPublisher.publishInvoiceRequested(subscription);
 
 	try {
 	    billingService.createInvoice(invoice);
 	    subscription.setStatus(SubscriptionStatus.ACTIVE);
 	} catch (Exception ex) {
 	    subscription.setStatus(SubscriptionStatus.PAYMENT_FAILED);
+	    billingEventPublisher.publishPaymentFailed(subscription,
+		    "Billing failed while creating invoice: " + ex.getMessage());
+	    billingEventPublisher.publishSupportTicketRaised(subscription,
+		    "Support ticket raised because billing failed for subscription " + subscription.getId());
 	}
 
 	return subscriptionRepository.save(subscription);
@@ -93,7 +101,14 @@ public class SubscriptionService {
     }
 
     public Subscription markPaymentFailed(Long id) {
-	return transitionSubscriptionStatus(id, SubscriptionStatus.PAYMENT_FAILED);
+	Subscription subscription = transitionSubscriptionStatus(id, SubscriptionStatus.PAYMENT_FAILED);
+	if (subscription != null) {
+	    billingEventPublisher.publishPaymentFailed(subscription,
+		    "Subscription manually marked as PAYMENT_FAILED");
+	    billingEventPublisher.publishSupportTicketRaised(subscription,
+		    "Support ticket raised because subscription " + subscription.getId() + " moved to PAYMENT_FAILED");
+	}
+	return subscription;
     }
 
     private Subscription transitionSubscriptionStatus(Long id, SubscriptionStatus targetStatus) {
