@@ -18,12 +18,15 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.RabbitMQContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -52,9 +55,18 @@ public class SubscriptionLifecycleIntegrationTest {
         registry.add("spring.rabbitmq.port", rabbitMQContainer::getAmqpPort);
         registry.add("eureka.client.enabled", () -> false);
         registry.add("spring.cloud.discovery.enabled", () -> false);
-        // Disable security for integration tests so TestRestTemplate isn't blocked by 401 Unauthorized
-        registry.add("spring.autoconfigure.exclude", () -> "org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration,org.springframework.boot.actuate.autoconfigure.security.servlet.ManagementWebSecurityAutoConfiguration,org.springframework.boot.autoconfigure.security.oauth2.resource.servlet.OAuth2ResourceServerAutoConfiguration");
     }
+
+    @TestConfiguration
+    static class SecurityOverrideConfig {
+        @Bean
+        public WebSecurityCustomizer webSecurityCustomizer() {
+            return (web) -> web.ignoring().antMatchers("/**");
+        }
+    }
+
+    @MockBean
+    private org.springframework.security.oauth2.jwt.JwtDecoder jwtDecoder;
 
     @MockBean
     private BillingService billingService;
