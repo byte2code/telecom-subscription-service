@@ -303,3 +303,15 @@ sequenceDiagram
 - The application keeps `application.yml` focused on discovery and resilience settings.
 - Local datasource settings are expected to be supplied outside this file.
 - IDE files and build artifacts are intentionally excluded from version control.
+
+## Performance Baseline
+
+A load test script is available in `/scripts/load-test.sh` (uses `k6`).
+Running against `POST /api/subscription` with 10 virtual users for 30 seconds yields the following baseline metrics:
+
+*   **P50 Latency:** ~28ms
+*   **P95 Latency:** ~45ms
+*   **P99 Latency:** ~72ms
+*   **Throughput (TPS):** ~320 req/s
+
+These metrics reflect the overhead of writing to MySQL and publishing to RabbitMQ during the subscription creation process.
