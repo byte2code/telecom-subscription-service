@@ -15,7 +15,9 @@ import Telecom.SubscriptionService.dto.SubscriptionDto;
 import Telecom.SubscriptionService.feign.BillingService;
 import Telecom.SubscriptionService.model.Plan;
 import Telecom.SubscriptionService.model.Subscription;
+import Telecom.SubscriptionService.model.User;
 import Telecom.SubscriptionService.repository.PlanRepository;
+import Telecom.SubscriptionService.repository.UserRepository;
 import Telecom.SubscriptionService.service.SubscriptionService;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -50,6 +52,9 @@ class TelecomIntegrationTest {
     @Autowired
     private PlanRepository planRepository;
 
+    @Autowired
+    private UserRepository userRepository;
+
     @MockBean
     private BillingService billingService;
 
@@ -60,11 +65,16 @@ class TelecomIntegrationTest {
         plan.setPrice(999);
         plan = planRepository.save(plan);
 
+        User user = new User();
+        user.setName("Test User");
+        user.setEmail("test@example.com");
+        user = userRepository.save(user);
+
         when(billingService.createInvoice(any())).thenReturn("ok");
 
         SubscriptionDto dto = new SubscriptionDto();
         dto.setPlanId(plan.getId());
-        dto.setUserId(1L);
+        dto.setUserId(user.getId());
 
         Subscription subscription = subscriptionService.createSubscription(dto);
         assertNotNull(subscription.getId());
