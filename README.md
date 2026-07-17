@@ -6,6 +6,8 @@
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-2.7.13-6DB33F?style=flat-square&logo=springboot)](https://spring.io/projects/spring-boot)
 [![RabbitMQ](https://img.shields.io/badge/RabbitMQ-3-FF6600?style=flat-square&logo=rabbitmq)](https://www.rabbitmq.com/)
 [![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?style=flat-square&logo=mysql)](https://www.mysql.com/)
+[![CI](https://github.com/byte2code/telecom-subscription-service/actions/workflows/ci.yml/badge.svg)](https://github.com/byte2code/telecom-subscription-service/actions/workflows/ci.yml)
+[![CD](https://github.com/byte2code/telecom-subscription-service/actions/workflows/cd.yml/badge.svg)](https://github.com/byte2code/telecom-subscription-service/actions/workflows/cd.yml)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
 
 ---
@@ -21,6 +23,7 @@
 - [Cross-Service Integration](#cross-service-integration)
 - [Observability](#observability)
 - [Security](#security)
+- [CI/CD Pipeline](#cicd-pipeline)
 - [Performance Baseline](#performance-baseline)
 - [API Reference](#api-reference)
 - [Example Requests & Responses](#example-requests--responses)
@@ -362,7 +365,96 @@ INFO  SECURITY AUDIT: User 'john.doe' accessed resource: POST /api/subscription
 
 ---
 
+## CI/CD Pipeline
+
+Two GitHub Actions workflows live in `.github/workflows/`:
+
+### `ci.yml` — Continuous Integration
+
+Triggers on every **push to `main`** and every **pull request**.
+
+```
+Push / PR
+    │
+    ▼
+┌─────────────────────────────┐
+│  Job 1: Build & Unit Tests  │  ← mvn verify (skips TelecomIntegrationTest)
+│  • Java 17 (Temurin)        │    Maven dependency cache
+│  • Uploads test report      │    Uploads JAR artifact (7-day retention)
+│  • Uploads JAR artifact     │
+└──────────────┬──────────────┘
+               │ needs: build
+       ┌───────┴────────┐
+       ▼                ▼
+┌────────────────┐  ┌───────────────────┐
+│ Job 2:         │  │ Job 3:            │
+│ Integration    │  │ Code Quality Gate │
+│ Tests          │  │ • TODO/FIXME scan │
+│ (Testcontainers│  │ • Compile warnings│
+│  MySQL+Rabbit) │  └───────────────────┘
+└────────────────┘
+```
+
+**Job breakdown:**
+
+| Job | What it does |
+|---|---|
+| **Build & Unit Tests** | `mvn verify` — compiles, runs all unit tests, uploads test report + JAR |
+| **Integration Tests** | `mvn test -Dtest=TelecomIntegrationTest` — spins up real MySQL + RabbitMQ via Testcontainers (Docker available on `ubuntu-latest` runners) |
+| **Code Quality** | Scans for `TODO`/`FIXME`/`HACK` comments; fails if count exceeds threshold |
+
+### `cd.yml` — Continuous Delivery
+
+Triggers on **push to `main`** or a **semver tag** (e.g., `v1.2.0`).
+
+```
+Push to main / Tag v*.*.*
+    │
+    ▼
+┌─────────────────────────────────────────────┐
+│  Build JAR (DskipTests — CI already ran)    │
+│  → docker/build-push-action                 │
+│  → Push to GitHub Container Registry (GHCR) │
+│                                             │
+│  Tags produced:                             │
+│    ghcr.io/byte2code/telecom-subscription-  │
+│    service:main          (branch push)      │
+│    service:1.2.0         (semver tag)       │
+│    service:sha-a1b2c3d   (commit SHA)       │
+└─────────────────────────────────────────────┘
+```
+
+### Running a release
+
+```bash
+# Tag a release — CD workflow builds and pushes automatically
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+Then pull the image anywhere:
+
+```bash
+docker pull ghcr.io/byte2code/telecom-subscription-service:1.0.0
+
+docker run -p 8080:8080 \
+  -e MYSQL_HOST=your-mysql-host \
+  -e RABBITMQ_HOST=your-rabbit-host \
+  -e OAUTH2_ISSUER_URI=https://your-idp/realms/telecom \
+  ghcr.io/byte2code/telecom-subscription-service:1.0.0
+```
+
+### Dockerfile highlights
+
+- Base: `eclipse-temurin:17-jre-alpine` — minimal JRE-only image (~180 MB)
+- Non-root user (`telecom`) — no process runs as root
+- `XX:+UseContainerSupport` + `MaxRAMPercentage=75` — JVM respects container memory limits
+- Layer cache via `docker/build-push-action` with GHA cache backend
+
+---
+
 ## Performance Baseline
+
 
 Load test script: `scripts/load-test.sh` (uses k6 via Docker)
 
