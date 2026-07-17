@@ -41,6 +41,9 @@ public class BillingEventListener {
 	    log.warn("Processed billing event: support ticket raised for subscriptionId={}, message={}",
 		    event.getSubscriptionId(), event.getMessage());
 	    break;
+	case RENEWAL_REQUESTED:
+	    log.info("Processed billing event: renewal requested for subscriptionId={}", event.getSubscriptionId());
+	    break;
 	default:
 	    throw new IllegalArgumentException("Unsupported billing event type: " + event.getEventType());
 	}

@@ -24,6 +24,11 @@ public class BillingEventPublisher {
 		"Invoice requested from billing service");
     }
 
+    public void publishRenewalRequested(Subscription subscription) {
+	publish(BillingEventType.RENEWAL_REQUESTED, BillingRabbitConfig.ROUTING_RENEWAL_REQUESTED, subscription,
+		"Renewal requested for subscription");
+    }
+
     public void publishPaymentFailed(Subscription subscription, String reason) {
 	publish(BillingEventType.PAYMENT_FAILED, BillingRabbitConfig.ROUTING_PAYMENT_FAILED, subscription, reason);
     }

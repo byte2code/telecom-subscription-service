@@ -26,6 +26,7 @@ public class BillingRabbitConfig {
     public static final String ROUTING_INVOICE_REQUESTED = "billing.invoice.requested";
     public static final String ROUTING_PAYMENT_FAILED = "billing.payment.failed";
     public static final String ROUTING_SUPPORT_TICKET_RAISED = "billing.support.ticket.raised";
+    public static final String ROUTING_RENEWAL_REQUESTED = "billing.renewal.requested";
     public static final String ROUTING_DLQ = "billing.dead";
 
     @Bean
