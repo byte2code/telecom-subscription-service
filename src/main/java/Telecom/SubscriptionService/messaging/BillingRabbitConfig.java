@@ -21,6 +21,8 @@ public class BillingRabbitConfig {
     public static final String DLX = "telecom.billing.dlx";
     public static final String QUEUE = "telecom.billing.queue";
     public static final String DLQ = "telecom.billing.dlq";
+    public static final String HOTEL_EVENTS_QUEUE = "telecom.hotel.events.queue";
+    public static final String HOTEL_EVENTS_EXCHANGE = "hotel.events.exchange";
 
     public static final String ROUTING_SUBSCRIPTION_CREATED = "billing.subscription.created";
     public static final String ROUTING_INVOICE_REQUESTED = "billing.invoice.requested";
@@ -40,6 +42,16 @@ public class BillingRabbitConfig {
     }
 
     @Bean
+    public TopicExchange hotelEventsExchange() {
+        return new TopicExchange(HOTEL_EVENTS_EXCHANGE);
+    }
+
+    @Bean
+    public Queue hotelEventsQueue() {
+        return new Queue(HOTEL_EVENTS_QUEUE, true);
+    }
+
+    @Bean
     public DirectExchange billingDeadLetterExchange() {
 	return new DirectExchange(DLX);
     }
@@ -52,6 +64,11 @@ public class BillingRabbitConfig {
     @Bean
     public Binding billingBinding(Queue billingQueue, TopicExchange billingExchange) {
 	return BindingBuilder.bind(billingQueue).to(billingExchange).with("billing.#");
+    }
+
+    @Bean
+    public Binding hotelEventsBinding(Queue hotelEventsQueue, TopicExchange hotelEventsExchange) {
+        return BindingBuilder.bind(hotelEventsQueue).to(hotelEventsExchange).with("hotel.booking.confirmed");
     }
 
     @Bean

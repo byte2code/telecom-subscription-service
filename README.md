@@ -268,6 +268,25 @@ flowchart LR
     Tickets --> SupportClient
 ```
 
+
+## System Event Flow
+
+```mermaid
+sequenceDiagram
+    participant Hotel as Hotel Service
+    participant RabbitMQ as RabbitMQ Broker
+    participant Telecom as Telecom Subscription Service
+    participant Billing as External Billing Service
+
+    Hotel->>RabbitMQ: Publish hotel.booking.confirmed
+    RabbitMQ->>Telecom: Receive HotelBookingEvent
+    Telecom->>Telecom: Provision default WiFi Plan
+    Telecom->>RabbitMQ: Publish SUBSCRIPTION_CREATED
+    Telecom->>RabbitMQ: Publish INVOICE_REQUESTED
+    RabbitMQ->>Billing: Receive INVOICE_REQUESTED
+    Billing-->>RabbitMQ: Return billing status
+```
+
 ## Learning Highlights
 
 - Using Eureka client registration in a Spring Boot app
