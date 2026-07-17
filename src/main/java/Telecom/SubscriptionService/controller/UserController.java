@@ -2,6 +2,7 @@ package Telecom.SubscriptionService.controller;
 
 import java.util.List;
 
+import javax.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -39,7 +40,7 @@ public class UserController {
     }
 
     @PostMapping
-    public ResponseEntity<ResponseMessage> createUser(@RequestBody UserDto userDto) {
+    public ResponseEntity<ResponseMessage> createUser(@Valid @RequestBody UserDto userDto) {
 	userService.createUser(userDto);
 	return new ResponseEntity<>(new ResponseMessage("User created Successfully"), HttpStatus.CREATED);
     }
@@ -55,7 +56,7 @@ public class UserController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ResponseMessage> updateUser(@PathVariable Long id, @RequestBody UserDto userDto) {
+    public ResponseEntity<ResponseMessage> updateUser(@PathVariable Long id, @Valid @RequestBody UserDto userDto) {
 	userService.updateUser(id, userDto);
 	return ResponseEntity.ok(new ResponseMessage("User updated Successfully"));
     }
@@ -66,14 +67,8 @@ public class UserController {
 	return ResponseEntity.ok(new ResponseMessage("User Deleted Successfully"));
     }
 
- // Exposed at both /tickets/{userId} and /api/user/tickets/{userId}
-//    @GetMapping("/tickets/{userId}")
-//    public ResponseEntity<List<Object>> getUserTickets(@PathVariable Long userId) {
-//        return ResponseEntity.ok(userService.getUserTickets(userId));
-//    }
-    
     @GetMapping("/tickets/{userId}")
     public ResponseEntity<List<Object>> getUserTickets(@PathVariable Long userId) {
-      return ResponseEntity.ok(userService.getUserTickets(userId).join());
+	return ResponseEntity.ok(userService.getUserTickets(userId).join());
     }
 }

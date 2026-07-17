@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -21,16 +22,19 @@ import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class UserService {
 
     private final UserRepository userRepository;
     private final SupportService supportService;
     private final ObjectMapper objectMapper;
 
+    @Transactional(readOnly = true)
     public List<User> getAllUsers() {
 	return userRepository.findAll();
     }
 
+    @Transactional(readOnly = true)
     public User getUserById(Long id) {
 	return userRepository.findById(id).orElse(null);
     }
@@ -46,10 +50,12 @@ public class UserService {
 	userRepository.save(user);
     }
 
+    @Transactional(readOnly = true)
     public User getUserByName(String name) {
 	return userRepository.findByName(name);
     }
 
+    @Transactional(readOnly = true)
     public User getUserByEmail(String email) {
 	return userRepository.findByEmail(email);
     }

@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
 import Telecom.SubscriptionService.feign.BillingService;
@@ -19,6 +20,7 @@ import Telecom.SubscriptionService.repository.UserRepository;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class SubscriptionService {
 
     private final SubscriptionRepository subscriptionRepository;
@@ -29,14 +31,17 @@ public class SubscriptionService {
     private final SupportService supportService;
     private final BillingEventPublisher billingEventPublisher;
 
+    @Transactional(readOnly = true)
     public List<Subscription> getAllSubscriptions() {
 	return subscriptionRepository.findAll();
     }
 
+    @Transactional(readOnly = true)
     public Subscription getSubscriptionById(Long id) {
 	return subscriptionRepository.findById(id).orElse(null);
     }
 
+    @Transactional(readOnly = true)
     public List<Subscription> getSubscriptionsByUserId(Long userId) {
 	User user = userRepository.findById(userId).orElse(null);
 	return user != null ? user.getSubscriptionList() : List.of();

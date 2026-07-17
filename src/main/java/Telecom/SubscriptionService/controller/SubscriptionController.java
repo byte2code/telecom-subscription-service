@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import javax.validation.Valid;
 
 import Telecom.SubscriptionService.dto.ResponseMessage;
 import Telecom.SubscriptionService.dto.SubscriptionDto;
@@ -53,7 +54,7 @@ public class SubscriptionController {
     }
 
     @PostMapping
-    public ResponseEntity<ResponseMessage> createSubscription(@RequestBody SubscriptionDto dto) {
+    public ResponseEntity<ResponseMessage> createSubscription(@Valid @RequestBody SubscriptionDto dto) {
 	User user = userService.getUserById(dto.getUserId());
 	if (user == null) {
 	    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
