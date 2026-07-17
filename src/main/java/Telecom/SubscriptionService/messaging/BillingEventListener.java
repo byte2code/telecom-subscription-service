@@ -4,10 +4,17 @@ import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Service;
 
 import lombok.extern.slf4j.Slf4j;
+import lombok.RequiredArgsConstructor;
+import Telecom.SubscriptionService.model.Invoice;
+import Telecom.SubscriptionService.repository.InvoiceRepository;
+import java.time.Instant;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class BillingEventListener {
+
+    private final InvoiceRepository invoiceRepository;
 
     @RabbitListener(queues = BillingRabbitConfig.QUEUE, containerFactory = "billingListenerContainerFactory")
     public void handleBillingEvent(BillingEvent event) {
@@ -18,6 +25,13 @@ public class BillingEventListener {
 	    break;
 	case INVOICE_REQUESTED:
 	    log.info("Processed billing event: invoice requested for subscriptionId={}", event.getSubscriptionId());
+	    Invoice invoice = new Invoice();
+	    invoice.setUserId(event.getUserId());
+	    invoice.setSubscriptionId(event.getSubscriptionId());
+	    invoice.setAmount(event.getAmount());
+	    invoice.setStatus("PENDING");
+	    invoice.setCreatedAt(Instant.now());
+	    invoiceRepository.save(invoice);
 	    break;
 	case PAYMENT_FAILED:
 	    log.warn("Processed billing event: payment failed for subscriptionId={}, message={}",

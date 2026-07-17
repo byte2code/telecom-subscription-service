@@ -4,9 +4,20 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import org.junit.jupiter.api.Test;
 
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import Telecom.SubscriptionService.repository.InvoiceRepository;
+
+@ExtendWith(MockitoExtension.class)
 class BillingEventListenerTest {
 
-    private final BillingEventListener billingEventListener = new BillingEventListener();
+    @Mock
+    private InvoiceRepository invoiceRepository;
+
+    @InjectMocks
+    private BillingEventListener billingEventListener;
 
     @Test
     void handleBillingEventRejectsInvalidPayload() {
