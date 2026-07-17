@@ -6,19 +6,21 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
+import java.time.LocalDate;
 
 @Entity
 @Data
 @NoArgsConstructor
 public class Subscription implements Serializable {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private Integer price;
-    private String planName;
-    private String planDetails;
+    @ManyToOne
+    @JoinColumn(name = "plan_id")
+    private Plan plan;
+
+    private LocalDate nextRenewalDate;
 
     @Enumerated(EnumType.STRING)
     private SubscriptionStatus status = SubscriptionStatus.REQUESTED;

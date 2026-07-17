@@ -58,11 +58,13 @@ class BillingEventPublisherTest {
     private Subscription subscription(Long subscriptionId, Long userId, String planName, Integer price) {
 	User user = new User();
 	user.setId(userId);
+	Telecom.SubscriptionService.model.Plan plan = new Telecom.SubscriptionService.model.Plan();
+	plan.setName(planName);
+	plan.setPrice(price);
 	Subscription subscription = new Subscription();
 	subscription.setId(subscriptionId);
 	subscription.setUser(user);
-	subscription.setPlanName(planName);
-	subscription.setPrice(price);
+	subscription.setPlan(plan);
 	return subscription;
     }
 }

@@ -20,6 +20,8 @@ import Telecom.SubscriptionService.messaging.BillingEventPublisher;
 import Telecom.SubscriptionService.model.Subscription;
 import Telecom.SubscriptionService.model.SubscriptionStatus;
 import Telecom.SubscriptionService.model.User;
+import Telecom.SubscriptionService.model.Plan;
+import Telecom.SubscriptionService.repository.PlanRepository;
 import Telecom.SubscriptionService.repository.SubscriptionRepository;
 import Telecom.SubscriptionService.repository.UserRepository;
 
@@ -31,6 +33,9 @@ class SubscriptionServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private PlanRepository planRepository;
 
     @Mock
     private BillingService billingService;
@@ -55,9 +60,15 @@ class SubscriptionServiceTest {
 
     @Test
     void createSubscriptionMovesFromRequestedToActiveWhenBillingSucceeds() {
-	SubscriptionDto dto = new SubscriptionDto(499, "Silver Plan", "Monthly pack", 1L);
+	SubscriptionDto dto = new SubscriptionDto(10L, 1L);
+
+	Plan plan = new Plan();
+	plan.setId(10L);
+	plan.setName("Silver Plan");
+	plan.setPrice(499);
 
 	when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+	when(planRepository.findById(10L)).thenReturn(Optional.of(plan));
 	when(subscriptionRepository.save(any(Subscription.class))).thenAnswer(invocation -> invocation.getArgument(0));
 	when(billingService.createInvoice(any())).thenReturn("ok");
 
@@ -72,9 +83,15 @@ class SubscriptionServiceTest {
 
     @Test
     void createSubscriptionMarksPaymentFailedWhenBillingFails() {
-	SubscriptionDto dto = new SubscriptionDto(699, "Gold Plan", "Annual pack", 1L);
+	SubscriptionDto dto = new SubscriptionDto(11L, 1L);
+
+	Plan plan = new Plan();
+	plan.setId(11L);
+	plan.setName("Gold Plan");
+	plan.setPrice(699);
 
 	when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+	when(planRepository.findById(11L)).thenReturn(Optional.of(plan));
 	when(subscriptionRepository.save(any(Subscription.class))).thenAnswer(invocation -> invocation.getArgument(0));
 	doThrow(new RuntimeException("billing unavailable")).when(billingService).createInvoice(any());
 

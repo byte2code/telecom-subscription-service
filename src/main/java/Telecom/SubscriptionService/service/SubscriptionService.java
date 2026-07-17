@@ -15,8 +15,11 @@ import Telecom.SubscriptionService.messaging.BillingEventPublisher;
 import Telecom.SubscriptionService.model.Subscription;
 import Telecom.SubscriptionService.model.SubscriptionStatus;
 import Telecom.SubscriptionService.model.User;
+import Telecom.SubscriptionService.model.Plan;
+import Telecom.SubscriptionService.repository.PlanRepository;
 import Telecom.SubscriptionService.repository.SubscriptionRepository;
 import Telecom.SubscriptionService.repository.UserRepository;
+import java.time.LocalDate;
 
 @Service
 @RequiredArgsConstructor
@@ -25,6 +28,7 @@ public class SubscriptionService {
 
     private final SubscriptionRepository subscriptionRepository;
     private final UserRepository userRepository;
+    private final PlanRepository planRepository;
 
     // Feign clients (must exist under @EnableFeignClients scan)
     private final BillingService billingService;
@@ -49,9 +53,10 @@ public class SubscriptionService {
 
     public void updateSubscription(Long id, SubscriptionDto dto) {
 	subscriptionRepository.findById(id).ifPresent(subscription -> {
-	    subscription.setPrice(dto.getPrice());
-	    subscription.setPlanName(dto.getPlanName());
-	    subscription.setPlanDetails(dto.getPlanDetails());
+	    Plan plan = planRepository.findById(dto.getPlanId()).orElse(null);
+	    if (plan != null) {
+	        subscription.setPlan(plan);
+	    }
 	    subscriptionRepository.save(subscription);
 	});
     }
@@ -59,23 +64,23 @@ public class SubscriptionService {
     // Save subscription in REQUESTED state and move it through billing-driven lifecycle.
     public Subscription createSubscription(SubscriptionDto dto) {
 	User user = userRepository.findById(dto.getUserId()).orElse(null);
-	if (user == null) {
+	Plan plan = planRepository.findById(dto.getPlanId()).orElse(null);
+	if (user == null || plan == null) {
 	    return null;
 	}
 
 	Subscription subscription = new Subscription();
-	subscription.setPrice(dto.getPrice());
-	subscription.setPlanName(dto.getPlanName());
-	subscription.setPlanDetails(dto.getPlanDetails());
+	subscription.setPlan(plan);
 	subscription.setUser(user);
 	subscription.setStatus(SubscriptionStatus.REQUESTED);
+	subscription.setNextRenewalDate(LocalDate.now().plusDays(30)); // default 30 days billing cycle
 	subscription = subscriptionRepository.save(subscription);
 	billingEventPublisher.publishSubscriptionCreated(subscription);
 
 	Map<String, Object> invoice = new HashMap<>();
 	invoice.put("userId", dto.getUserId());
-	invoice.put("price", dto.getPrice());
-	invoice.put("planName", dto.getPlanName());
+	invoice.put("price", plan.getPrice());
+	invoice.put("planName", plan.getName());
 	invoice.put("subscriptionId", subscription.getId());
 	billingEventPublisher.publishInvoiceRequested(subscription);
 
