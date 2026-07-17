@@ -29,8 +29,9 @@ class BillingRabbitConfigTest {
     void createsRetryAwareListenerFactory() {
 	ConnectionFactory connectionFactory = mock(ConnectionFactory.class);
 	RabbitTemplate rabbitTemplate = mock(RabbitTemplate.class);
+	com.fasterxml.jackson.databind.ObjectMapper objectMapper = mock(com.fasterxml.jackson.databind.ObjectMapper.class);
 
 	assertNotNull(billingRabbitConfig.billingListenerContainerFactory(connectionFactory,
-		billingRabbitConfig.jackson2JsonMessageConverter(), rabbitTemplate));
+		billingRabbitConfig.jackson2JsonMessageConverter(objectMapper), rabbitTemplate));
     }
 }

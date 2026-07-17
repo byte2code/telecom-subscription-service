@@ -14,6 +14,8 @@ import org.springframework.amqp.rabbit.retry.RepublishMessageRecoverer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 @Configuration
 public class BillingRabbitConfig {
 
@@ -77,8 +79,8 @@ public class BillingRabbitConfig {
     }
 
     @Bean
-    public Jackson2JsonMessageConverter jackson2JsonMessageConverter() {
-	return new Jackson2JsonMessageConverter();
+    public Jackson2JsonMessageConverter jackson2JsonMessageConverter(ObjectMapper objectMapper) {
+	return new Jackson2JsonMessageConverter(objectMapper);
     }
 
     @Bean
